@@ -51,7 +51,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/denverdino/aliyungo v0.0.0-20210425065611-55bee4942cba
 	github.com/digitalocean/godo v1.60.0
-	github.com/docker/docker v20.10.6+incompatible // indirect
+	github.com/docker/docker v20.10.24+incompatible // indirect
 	github.com/go-ini/ini v1.62.0
 	github.com/go-logr/logr v0.4.0
 	github.com/gogo/protobuf v1.3.2
