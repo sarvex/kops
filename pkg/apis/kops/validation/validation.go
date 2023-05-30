@@ -525,7 +525,7 @@ func validateTopology(c *kops.Cluster, topology *kops.TopologySpec, fieldPath *f
 
 		if topology.DNS == kops.DNSTypeNone {
 			switch cloud {
-			case kops.CloudProviderOpenstack, kops.CloudProviderHetzner, kops.CloudProviderAWS, kops.CloudProviderGCE, kops.CloudProviderDO:
+			case kops.CloudProviderOpenstack, kops.CloudProviderHetzner, kops.CloudProviderAWS, kops.CloudProviderGCE, kops.CloudProviderDO, kops.CloudProviderScaleway:
 			// ok
 			default:
 				allErrs = append(allErrs, field.Invalid(fieldPath.Child("dns", "type"), topology.DNS, fmt.Sprintf("not supported for %q", c.Spec.GetCloudProvider())))
@@ -1872,7 +1872,7 @@ func validateExternalDNS(cluster *kops.Cluster, spec *kops.ExternalDNSConfig, fl
 	}
 
 	if spec.Provider == kops.ExternalDNSProviderExternalDNS {
-		if cluster.IsGossip() || cluster.UsesNoneDNS() {
+		if cluster.UsesLegacyGossip() || cluster.UsesNoneDNS() {
 			allErrs = append(allErrs, field.Forbidden(fldPath.Child("provider"), "external-dns requires public or private DNS topology"))
 		}
 		if cluster.Spec.IsIPv6Only() {

@@ -66,13 +66,13 @@ GITSHA := $(shell cd ${KOPS_ROOT}; git describe --always)
 # We lock the versions of our controllers also
 # We need to keep in sync with:
 #   upup/models/cloudup/resources/addons/dns-controller/
-DNS_CONTROLLER_TAG=1.27.0-alpha.1
+DNS_CONTROLLER_TAG=1.27.0-alpha.2
 DNS_CONTROLLER_PUSH_TAG=$(shell tools/get_workspace_status.sh | grep STABLE_DNS_CONTROLLER_TAG | awk '{print $$2}')
 #   upup/models/cloudup/resources/addons/kops-controller.addons.k8s.io/
-KOPS_CONTROLLER_TAG=1.27.0-alpha.1
+KOPS_CONTROLLER_TAG=1.27.0-alpha.2
 KOPS_CONTROLLER_PUSH_TAG=$(shell tools/get_workspace_status.sh | grep STABLE_KOPS_CONTROLLER_TAG | awk '{print $$2}')
 #   pkg/model/components/kubeapiserver/model.go
-KUBE_APISERVER_HEALTHCHECK_TAG=1.27.0-alpha.1
+KUBE_APISERVER_HEALTHCHECK_TAG=1.27.0-alpha.2
 KUBE_APISERVER_HEALTHCHECK_PUSH_TAG=$(shell tools/get_workspace_status.sh | grep STABLE_KUBE_APISERVER_HEALTHCHECK_TAG | awk '{print $$2}')
 
 CGO_ENABLED=0
@@ -317,7 +317,7 @@ gomod:
 
 .PHONY: goget
 goget:
-	go get $(shell go list -f '{{if not (or .Main .Indirect)}}{{.Path}}{{end}}' -mod=mod -m all)
+	go get $(shell go list -f '{{if not (or .Main .Indirect)}}{{.Path}}{{end}}' -mod=mod -m all | grep -v spotinst-sdk-go)
 
 .PHONY: depup
 depup: goget gomod gen-cli-docs

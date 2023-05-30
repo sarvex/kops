@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-export KOPS_FEATURE_FLAGS="SpecOverrideFlag"
-
 REPO_ROOT=$(git rev-parse --show-toplevel);
 source "${REPO_ROOT}"/tests/e2e/scenarios/lib/common.sh
 
@@ -27,17 +25,17 @@ fi
 TEST_PACKAGE_VERSION="${K8S_VERSION_B}"
 
 if [[ "$K8S_VERSION_A" == "latest" ]]; then
-  K8S_VERSION_A=$(curl https://storage.googleapis.com/kubernetes-release/release/latest.txt)
+  K8S_VERSION_A=$(curl -L https://dl.k8s.io/release/latest.txt)
 fi
 if [[ "$K8S_VERSION_B" == "latest" ]]; then
-  K8S_VERSION_B=$(curl https://storage.googleapis.com/kubernetes-release/release/latest.txt)
+  K8S_VERSION_B=$(curl -L https://dl.k8s.io/release/latest.txt)
   TEST_PACKAGE_MARKER="latest.txt"
 fi
 if [[ "$K8S_VERSION_A" == "stable" ]]; then
-  K8S_VERSION_A=$(curl https://storage.googleapis.com/kubernetes-release/release/stable.txt)
+  K8S_VERSION_A=$(curl -L https://dl.k8s.io/release/stable.txt)
 fi
 if [[ "$K8S_VERSION_B" == "stable" ]]; then
-  K8S_VERSION_B=$(curl https://storage.googleapis.com/kubernetes-release/release/stable.txt)
+  K8S_VERSION_B=$(curl -L https://dl.k8s.io/release/stable.txt)
   TEST_PACKAGE_MARKER="stable.txt"
 fi
 if [[ "$K8S_VERSION_A" == "ci" ]]; then

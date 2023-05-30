@@ -24,6 +24,7 @@ import (
 	l3floatingip "github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/layer3/floatingips"
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/ports"
 
+	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/attachinterfaces"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/bootfromvolume"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/keypairs"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/schedulerhints"
@@ -52,6 +53,7 @@ type Instance struct {
 	SecurityGroups   []string
 	FloatingIP       *FloatingIP
 	ConfigDrive      *bool
+	Status           *string
 
 	Lifecycle    fi.Lifecycle
 	ForAPIServer bool
@@ -198,6 +200,7 @@ func (e *Instance) Find(c *fi.CloudupContext) (*Instance, error) {
 		AvailabilityZone: e.AvailabilityZone,
 		GroupName:        e.GroupName,
 		ConfigDrive:      e.ConfigDrive,
+		Status:           fi.PtrTo(server.Status),
 	}
 
 	ports, err := cloud.ListPorts(ports.ListOpts{
@@ -244,6 +247,7 @@ func (e *Instance) Find(c *fi.CloudupContext) (*Instance, error) {
 
 	// Avoid flapping
 	e.ID = actual.ID
+	e.Status = fi.PtrTo(activeStatus)
 	actual.ForAPIServer = e.ForAPIServer
 
 	// Immutable fields
@@ -281,6 +285,9 @@ func (_ *Instance) ShouldCreate(a, e, changes *Instance) (bool, error) {
 	if a == nil {
 		return true, nil
 	}
+	if fi.ValueOf(a.Status) == errorStatus {
+		return true, nil
+	}
 	if changes.Port != nil {
 		return true, nil
 	}
@@ -309,7 +316,13 @@ func generateInstanceName(e *Instance) (string, error) {
 
 func (_ *Instance) RenderOpenstack(t *openstack.OpenstackAPITarget, a, e, changes *Instance) error {
 	cloud := t.Cloud
-	if a == nil {
+
+	if a != nil && fi.ValueOf(a.Status) == errorStatus {
+		klog.V(2).Infof("Delete previously failed server: %s\n", fi.ValueOf(a.ID))
+		cloud.DeleteInstanceWithID(fi.ValueOf(a.ID))
+	}
+
+	if a == nil || fi.ValueOf(a.Status) == errorStatus {
 		serverName, err := generateInstanceName(e)
 		if err != nil {
 			return err
@@ -387,9 +400,12 @@ func (_ *Instance) RenderOpenstack(t *openstack.OpenstackAPITarget, a, e, change
 		return nil
 	}
 	if changes.Port != nil {
-		ports.Update(cloud.NetworkingClient(), fi.ValueOf(changes.Port.ID), ports.UpdateOpts{
-			DeviceID: e.ID,
-		})
+		_, err := attachinterfaces.Create(cloud.ComputeClient(), fi.ValueOf(e.ID), attachinterfaces.CreateOpts{
+			PortID: fi.ValueOf(changes.Port.ID),
+		}).Extract()
+		if err != nil {
+			return err
+		}
 	}
 	if changes.FloatingIP != nil {
 		err := associateFloatingIP(t, e)

@@ -68,7 +68,7 @@ type ScwCloud interface {
 	GetCloudGroups(cluster *kops.Cluster, instancegroups []*kops.InstanceGroup, warnUnmatched bool, nodes []v1.Node) (map[string]*cloudinstances.CloudInstanceGroup, error)
 
 	GetClusterLoadBalancers(clusterName string) ([]*lb.LB, error)
-	GetClusterServers(clusterName string, serverName *string) ([]*instance.Server, error)
+	GetClusterServers(clusterName string, instanceGroupName *string) ([]*instance.Server, error)
 	GetClusterSSHKeys(clusterName string) ([]*iam.SSHKey, error)
 	GetClusterVolumes(clusterName string) ([]*instance.Volume, error)
 
@@ -385,16 +385,20 @@ func (s *scwCloudImplementation) GetClusterLoadBalancers(clusterName string) ([]
 	return lbs.LBs, nil
 }
 
-func (s *scwCloudImplementation) GetClusterServers(clusterName string, serverName *string) ([]*instance.Server, error) {
+func (s *scwCloudImplementation) GetClusterServers(clusterName string, instanceGroupName *string) ([]*instance.Server, error) {
+	tags := []string{TagClusterName + "=" + clusterName}
+	if instanceGroupName != nil {
+		tags = append(tags, fmt.Sprintf("%s=%s", TagInstanceGroup, *instanceGroupName))
+	}
 	request := &instance.ListServersRequest{
 		Zone: s.zone,
-		Name: serverName,
-		Tags: []string{TagClusterName + "=" + clusterName},
+		Name: instanceGroupName,
+		Tags: tags,
 	}
 	servers, err := s.instanceAPI.ListServers(request, scw.WithAllPages())
 	if err != nil {
-		if serverName != nil {
-			return nil, fmt.Errorf("failed to list cluster servers named %q: %w", *serverName, err)
+		if instanceGroupName != nil {
+			return nil, fmt.Errorf("failed to list cluster servers named %q: %w", *instanceGroupName, err)
 		}
 		return nil, fmt.Errorf("failed to list cluster servers: %w", err)
 	}
@@ -470,7 +474,7 @@ func (s *scwCloudImplementation) DeleteLoadBalancer(loadBalancer *lb.LB) error {
 }
 
 func (s *scwCloudImplementation) DeleteServer(server *instance.Server) error {
-	srv, err := s.instanceAPI.GetServer(&instance.GetServerRequest{
+	_, err := s.instanceAPI.GetServer(&instance.GetServerRequest{
 		Zone:     s.zone,
 		ServerID: server.ID,
 	})
@@ -482,50 +486,22 @@ func (s *scwCloudImplementation) DeleteServer(server *instance.Server) error {
 		return err
 	}
 
-	// If the server is running, we turn it off and wait before deleting it
-	if srv.Server.State == instance.ServerStateRunning {
-		_, err := s.instanceAPI.ServerAction(&instance.ServerActionRequest{
-			Zone:     s.zone,
-			ServerID: server.ID,
-			Action:   instance.ServerActionPoweroff,
-		})
-		if err != nil {
-			return fmt.Errorf("delete server %s: error powering off instance: %w", server.ID, err)
-		}
+	// We terminate the server. This stops and deletes the machine immediately
+	_, err = s.instanceAPI.ServerAction(&instance.ServerActionRequest{
+		Zone:     s.zone,
+		ServerID: server.ID,
+		Action:   instance.ServerActionTerminate,
+	})
+	if err != nil && !is404Error(err) {
+		return fmt.Errorf("delete server %s: error terminating instance: %w", server.ID, err)
 	}
+
 	_, err = s.instanceAPI.WaitForServer(&instance.WaitForServerRequest{
 		ServerID: server.ID,
 		Zone:     s.zone,
 	})
-	if err != nil {
-		return fmt.Errorf("delete server %s: error waiting for instance after power-off: %w", server.ID, err)
-	}
-
-	// We delete the server and wait before deleting its volumes
-	err = s.instanceAPI.DeleteServer(&instance.DeleteServerRequest{
-		ServerID: server.ID,
-		Zone:     s.zone,
-	})
-	if err != nil {
-		return fmt.Errorf("delete server %s: error deleting instance: %w", server.ID, err)
-	}
-	_, err = s.instanceAPI.WaitForServer(&instance.WaitForServerRequest{
-		ServerID: server.ID,
-		Zone:     s.zone,
-	})
-	if !is404Error(err) {
-		return fmt.Errorf("delete server %s: error waiting for instance after deletion: %w", server.ID, err)
-	}
-
-	// We delete the volumes that were attached to the server (including etcd volumes)
-	for i := range server.Volumes {
-		err = s.instanceAPI.DeleteVolume(&instance.DeleteVolumeRequest{
-			Zone:     s.zone,
-			VolumeID: server.Volumes[i].ID,
-		})
-		if err != nil {
-			return fmt.Errorf("delete server %s: error deleting volume %s: %w", server.ID, server.Volumes[i].Name, err)
-		}
+	if err != nil && !is404Error(err) {
+		return fmt.Errorf("delete server %s: error waiting for instance after termination: %w", server.ID, err)
 	}
 
 	return nil

@@ -18,7 +18,7 @@ spec:
     cloudProvider: hcloud
     clusterCIDR: 100.64.0.0/10
     configureCloudRoutes: false
-    image: hetznercloud/hcloud-cloud-controller-manager:v1.13.2
+    image: hetznercloud/hcloud-cloud-controller-manager:v1.15.0
     leaderElection:
       leaderElect: false
   cloudProvider: hetzner
@@ -30,7 +30,7 @@ spec:
     logLevel: info
     runc:
       version: 1.1.5
-    version: 1.6.21
+    version: 1.6.20
   docker:
     skipInstall: true
   etcdClusters:

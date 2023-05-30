@@ -181,7 +181,7 @@ metadata:
 spec:
   containers:
   - name: etcd-manager
-    image: registry.k8s.io/etcdadm/etcd-manager-slim:v3.0.20230201
+    image: registry.k8s.io/etcdadm/etcd-manager-slim:v3.0.20230516
     resources:
       requests:
         cpu: 100m
@@ -518,10 +518,13 @@ func (b *EtcdManagerBuilder) buildPod(etcdCluster kops.EtcdClusterSpec, instance
 			},
 		}
 
-		kubemanifest.AddHostPathMapping(pod, container, "varlogetcd", "/var/log/etcd.log").WithReadWrite().WithType(v1.HostPathFileOrCreate).WithHostPath(logFile)
+		kubemanifest.AddHostPathMapping(pod, container, "varlogetcd", "/var/log/etcd.log",
+			kubemanifest.WithReadWrite(),
+			kubemanifest.WithType(v1.HostPathFileOrCreate),
+			kubemanifest.WithHostPath(logFile))
 
 		if fi.ValueOf(b.Cluster.Spec.UseHostCertificates) {
-			kubemanifest.AddHostPathMapping(pod, container, "etc-ssl-certs", "/etc/ssl/certs").WithType(v1.HostPathDirectoryOrCreate)
+			kubemanifest.AddHostPathMapping(pod, container, "etc-ssl-certs", "/etc/ssl/certs", kubemanifest.WithType(v1.HostPathDirectoryOrCreate))
 		}
 	}
 
